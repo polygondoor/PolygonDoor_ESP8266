@@ -64,7 +64,7 @@ bool ESP8266::kick(void)
 
 void ESP8266::forceBaudrate() {
 
-  Serial.println(F("ESP8266::Forcing Baud Rate ..."));
+  // Serial.println(F("ESP8266::Forcing Baud Rate ..."));
   m_puart->begin(115200);
   m_puart->println(F("AT+RST"));
   delay(500);
@@ -692,7 +692,7 @@ bool ESP8266::recvFind(String target, uint32_t timeout)
     String data_tmp;
     data_tmp = recvString(target, timeout);
     //Serial.println("////////");
-    //Serial.println(data_tmp);
+    // Serial.println(data_tmp);
     //Serial.println("////////");
     if (data_tmp.indexOf(target) != -1) {
         return true;
@@ -844,14 +844,12 @@ bool ESP8266::sATCWSAP(String ssid, String pwd, uint8_t chl, uint8_t ecn)
 
 bool ESP8266::eATCWLIF(String &list)
 {
-    String data;
     rx_empty();
     m_puart->println("AT+CWLIF");
     return recvFindAndFilter("OK", "\r\r\n", "\r\n\r\nOK", list);
 }
 bool ESP8266::eATCIPSTATUS(String &list)
 {
-    String data;
     delay(100);
     rx_empty();
     m_puart->println("AT+CIPSTATUS");
