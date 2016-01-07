@@ -1,23 +1,12 @@
 @mainpage
 
-# WeeESP8266
-
 An ESP8266 library for Arduino providing an easy-to-use way to manipulate ESP8266.
+
+It has been extended and modified (from the original WeeESP8266) to support email parsing (with low memory overhead). It is designed to be used with HackySoc <https://github.com/polygondoor/HackySoc>
 
 # Source 
 
-Source can be download at <https://github.com/itead/ITEADLIB_Arduino_WeeESP8266>.
-
-You can clone it by:
-
-    git clone https://github.com/itead/ITEADLIB_Arduino_WeeESP8266.git
-
-# Documentation
-
-Online API documentation can be reached at <http://docs.iteadstudio.com/ITEADLIB_Arduino_WeeESP8266/index.html>.
-
-Offline API documentation can be found under directory 
-[doc](https://github.com/itead/ITEADLIB_Arduino_WeeESP8266/tree/master/doc).
+Source can be download at <https://github.com/polygondoor/PolygonDoor_ESP8266>
 
 # How to get started
 
