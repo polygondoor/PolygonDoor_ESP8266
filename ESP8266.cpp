@@ -2,7 +2,9 @@
  * @file ESP8266.cpp
  * @brief The implementation of class ESP8266. 
  * @author Wu Pengfei<pengfei.wu@itead.cc * @date 2015.02
- * With modifications /additions by Etienne Deleflie
+ *
+ * With major modifications /additions by Etienne Deleflie
+ * Mainly for more efficient memory handling for receiving emails.
  * 
  * @par Copyright:
  * Copyright (c) 2015 ITEAD Intelligent Systems Co., Ltd. \n\n
@@ -576,10 +578,12 @@ uint32_t ESP8266::sendAndReceiveEmail(char* email_contents[], size_t content_siz
                     } else if ( data.startsWith("From: ")) {
 
                         // Serial.println("From:");
+                        data.substring(6).toCharArray(email_contents[0], 128);
 
                     } else if ( data.startsWith("Subject: ")) {
 
                         // Serial.println("Subject:");
+                        data.substring(9).toCharArray(email_contents[1], 128);
 
                     }
                     
