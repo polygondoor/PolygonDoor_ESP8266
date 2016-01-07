@@ -62,7 +62,7 @@ bool ESP8266::kick(void)
 
 void ESP8266::forceBaudrate() {
 
-  Serial.println(F("Forcing Baud Rate ..."));
+  Serial.println(F("ESP8266::Forcing Baud Rate ..."));
   m_puart->begin(115200);
   m_puart->println(F("AT+RST"));
   delay(500);
@@ -75,12 +75,12 @@ void ESP8266::forceBaudrate() {
 
 bool ESP8266::restart(void)
 {
+    Serial.println("ESP8266: Restarting");
     // added by Etienne
     forceBaudrate();
 
     unsigned long start;
     if (eATRST()) {
-        Serial.println(F("called reset ..."));
         delay(2000);
 
         // added by Etienne
@@ -301,12 +301,13 @@ bool ESP8266::send(const uint8_t *buffer, uint32_t len)
 {
     return sATCIPSENDSingle(buffer, len);
 }
-
+/*
 // by me Etienne ... for sending SMTP emails
 bool ESP8266::sendAndCheck(String message)
 {
     return sendAndCheck( message, F("OK\r\n"));
 }
+*/
 
 bool ESP8266::sendAndCheck(String message, String target)
 {
@@ -322,7 +323,8 @@ bool ESP8266::sendAndCheck(String message, String target)
         // if we get here then we found the appropriate contents
         return true;
     } else {
-        Serial.println(F("ED: Sending was fine but response was not right"));
+        Serial.println(F("ESP8266:: Sending was fine but response was not right to the command:"));
+        Serial.println(message);
     }
 
 
@@ -447,13 +449,164 @@ uint32_t ESP8266::recvPkg(uint8_t *buffer, uint32_t buffer_size, uint32_t *data_
     return 0;
 }
 
-void ESP8266::rx_empty(void)
+/*
+* Written by Etienne to parse out unwanted text when receiving an email
+*
+* All I want is the sender and the email body.
+*/
+uint32_t ESP8266::sendAndReceiveEmail(char* email_contents[], size_t content_sizes[], String message)
 {
+    const char* buffer = message.c_str();
+    uint32_t length = strlen(buffer);
 
-    while(m_puart->available() > 0) {
-         m_puart->read();
+    // send command to retrieve email
+    sATCIPSENDSingleNoRcv( (uint8_t*)buffer, length);
+
+    // now read the result and place into buffers
+    String data;
+    char a;
+    int32_t index_PIPDcomma = -1;
+    int32_t index_colon = -1; /* : */
+    int32_t index_comma = -1; /* , */
+    int32_t len = -1;
+    int8_t id = -1;
+    bool has_data = false;
+    uint32_t ret;
+    unsigned long start;
+    uint32_t timeout = 10000;
+    uint8_t *coming_mux_id = NULL;
+    uint8_t *data_len = NULL;
+    
+    if (buffer == NULL) {
+        return 0;
+    }
+    
+    start = millis();
+    
+    while (millis() - start < timeout) {
+        if(m_puart->available() > 0) {
+            a = m_puart->read();
+            data += a;
+        }
+        
+        index_PIPDcomma = data.indexOf("+IPD,");
+        if (index_PIPDcomma != -1) {
+            index_colon = data.indexOf(':', index_PIPDcomma + 5);
+            if (index_colon != -1) {
+                index_comma = data.indexOf(',', index_PIPDcomma + 5);
+                /* +IPD,id,len:data */
+                if (index_comma != -1 && index_comma < index_colon) { 
+                    id = data.substring(index_PIPDcomma + 5, index_comma).toInt();
+                    if (id < 0 || id > 4) {
+                        return 0;
+                    }
+                    len = data.substring(index_comma + 1, index_colon).toInt();
+                    if (len <= 0) {
+                        return 0;
+                    }
+                } else { /* +IPD,len:data */
+                    len = data.substring(index_PIPDcomma + 5, index_colon).toInt();
+                    if (len <= 0) {
+                        return 0;
+                    }
+                }
+                has_data = true;
+                break;
+            }
+        }
     }
 
+    bool haveCR = false;
+    bool haveCRLF = false;
+    bool inBody = false;
+
+    uint8_t email_body_size = content_sizes[2] - 1;
+
+    // incrementor for putting characters in buffers 
+    uint32_t i;
+
+    data = "";
+
+    Serial.println("ESP8266:: receiving email");
+
+    if (has_data) {
+        i = 0;
+
+        // The send command has been successfull
+        // Now we can wait for the email message to come in.
+
+        // ret = len > bufferBody_size ? bufferBody_size : len;
+        start = millis();
+        while (millis() - start < 5000) {
+            while( m_puart->available() ) {
+                // wait and see if what we read is a /n
+                a = m_puart->read();
+
+                // looks for CRLF string (which terminates the header field)
+                if (a == '\r') {
+                    haveCR = true;
+                } else if (a == '\n') {
+                    if (haveCR) haveCRLF = true;
+                } else {
+                    haveCR = false;
+                    haveCRLF = false;
+
+                    if (inBody) {
+
+                        // we know we are in the body, so no need to save data to string, 
+                        email_contents[2][i++] = a;
+                        // stop if the email body buffer is full!
+                        if ( i >= email_body_size) {
+
+                            break;
+                        }
+
+                    } else {
+                       //save character to the String
+                        data += a;
+                    }
+                    
+                }
+
+                if (haveCRLF) {
+                    // we have a full header, parse it for necessary variables
+                    //Serial.println("------------");
+                    if (data == "" && !inBody) {
+                        inBody = true;
+                    } else if ( data.startsWith("From: ")) {
+
+                        // Serial.println("From:");
+
+                    } else if ( data.startsWith("Subject: ")) {
+
+                        // Serial.println("Subject:");
+
+                    }
+                    
+                    // reset our variables
+                    data = "";
+                    haveCRLF = false;
+                }
+            }
+        }
+        // if we get here then we have finished waiting
+
+        // no more data available
+        // make sure we terminate the body string
+        // use i-1 to lose trailing 'period' character that gmail
+        // places on end of email body
+        email_contents[2][i-1] = '\0';
+        return 1;
+    }
+
+    return 0;
+}
+
+void ESP8266::rx_empty(void)
+{
+    while(m_puart->available() > 0) {
+        char( m_puart->read() ) ;
+    }
 }
 
 String ESP8266::recvString(String target, uint32_t timeout)
@@ -534,6 +687,9 @@ bool ESP8266::recvFind(String target, uint32_t timeout)
 {
     String data_tmp;
     data_tmp = recvString(target, timeout);
+    //Serial.println("////////");
+    //Serial.println(data_tmp);
+    //Serial.println("////////");
     if (data_tmp.indexOf(target) != -1) {
         return true;
     }

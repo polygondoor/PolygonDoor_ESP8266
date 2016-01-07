@@ -368,10 +368,13 @@ class ESP8266 {
     /**
      * Written by Etienne. 
      */
-    bool sendAndCheck(String message);
+    // bool sendAndCheck(String message);
     bool sendAndCheck(String message, String target);
     
     uint32_t sendAndReceive(uint8_t *inputBuffer, uint32_t buffer_size, String message);
+
+    // Written by Etienne to save space writing long email messages into buffers
+    uint32_t sendAndReceiveEmail(char* email_contents[], size_t sizes[], String message);
 
     /**
      * Receive data from TCP or UDP builded already in single mode. 
@@ -434,7 +437,8 @@ class ESP8266 {
      * Recvive data from uart and search first target. Return true if target found, false for timeout.
      */
     bool recvFind(String target, uint32_t timeout = 1000);
-    
+
+
     /* 
      * Recvive data from uart and search first target and cut out the substring between begin and end(excluding begin and end self). 
      * Return true if target found, false for timeout.
